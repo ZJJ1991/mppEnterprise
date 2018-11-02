@@ -1,6 +1,6 @@
 const thorify = require("thorify").thorify;
 const Web3 = require("web3");
-const web3 = thorify(new Web3(), "http://localhost:8669/api");
+const web3 = thorify(new Web3(), "http://localhost:8669");
 
 const prototypeAddress = "0x000000000000000000000050726f746f74797065";
 const PrototypeAbi = [
