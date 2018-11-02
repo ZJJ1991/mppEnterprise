@@ -1,0 +1,13 @@
+var newMaserAdd = '0x3ed57ec5e5576f4940eb73c42b498972bf2d4393';
+var selfAdd = '0x102289403ab6120b33af459a9ac2e7f58458f2c6';
+var deployerAdd = '0x77a171346b890769c28042f633bd79b2077415f5';
+var user1Add = '0x6a480c078bfa88ac6a4d323e7d9b00c94cb9ec22'
+var user2Add = '0x6cd336cd6766fc8370821166325fb9e8e4a986b6'
+var user3Add = '0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d'
+// var selfAdd = '0xee0eff1e7c3a6475be559805ee49a1f6eda6a3b9'
+
+const newMasterPrivateKey = '0x5cedad2e53f4ffd46e0ca9f9e7a98b0ea47ce4606bf447320a35a7a2726266eb'
+const deployerPrivateKey = '0x0b3ca8e7709ef7ef86bd67ea97ef2c322d85b31a63db3f08c0da7d5e0249b918'
+const user1PrivateKey = '0x073ad7a89062d807509a708fc4a7b476de7a8a13eb7cb5e10caa013f88f79cc0'
+const user2PrivateKey = '0xbf02c1c966963e635676d831600baa8ff8d3843a0624f1a59e5bc3b9624a1ec5'
+const user3PrivateKey = '0x989f429a16161a078b65f507b36c5286272735018db939e073620f9ee465606c'
