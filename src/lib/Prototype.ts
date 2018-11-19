@@ -351,6 +351,7 @@ export default class PrototypeUtility {
       "renderHelloWorld()"
     );
     console.log('contract add: ', contractAdd)
+    let error = false;
     try {
       let result = await web3.eth
         .sendTransaction({
@@ -359,26 +360,20 @@ export default class PrototypeUtility {
           value: 0,
           data: methodId,
         })
-        .on("transactionHash", function(hash: any) {
-          console.log("tx hash: ", hash);
-        })
-        .on("receipt", function(receipt: any) {
-          console.log("receipt: ", receipt);
-        })
         .then(function(txResult: any) {
           console.log("tx result: ", txResult);
         });
-      return result;
     } catch (err) {
       console.log(err);
       return false;
     }
+    return true
   }
   async setCreditPlan(
     masterprikey: string,
     masterAdd: string,
     contractAdd: string,
-    credit: number,
+    credit: string,
     recoveryRate: number
   ) {
     web3.eth.accounts.wallet.add({
@@ -387,6 +382,7 @@ export default class PrototypeUtility {
     });
     var error = false;
     try {
+      credit = credit + '000000000000000000'
       await PrototypeContract.methods
         .setCreditPlan(contractAdd, credit, recoveryRate)
         .send({ from: masterAdd, gas: 100000 })
