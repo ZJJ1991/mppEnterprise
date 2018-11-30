@@ -273,7 +273,9 @@ export default class PrototypeUtility {
   }
 
   async getEnergy(address: string) {
-    return web3.eth.getEnergy(address);
+    return web3.eth.getEnergy(address).then(function(result:any){
+      console.log('energy result: ', result)
+    });
   }
   async creditPlan(contractAdd: string) {
     return PrototypeContract.methods.creditPlan(contractAdd).call();
@@ -398,3 +400,6 @@ export default class PrototypeUtility {
     }
   }
 }
+
+let prototypeUti = new PrototypeUtility();
+prototypeUti.getEnergy("0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d")

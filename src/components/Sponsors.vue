@@ -26,7 +26,7 @@
                         <!-- Note that the reason to use <template> here is because we want to have the full size table. -->
                         <td class="text-xs-center">{{ props.item.address }}</td>
                         <td class="text-xs-center">{{ props.item.bal }}</td>
-                        <td class="text-xs-center">{{ props.item.creditPlan }}</td>
+                        <!-- <td class="text-xs-center">{{ props.item.creditPlan }}</td> -->
                         <div class="text-xs-center">
                             <v-btn color="grey" primary @click="snackbar = true" v-on:click="selectSponsor(props.item.address)">
                                 Select
@@ -40,7 +40,7 @@
                     <p class="text-md-center">Current Sponsor Address: {{ currentSponsor }}</p>
                     <p class="text-md-center">Current Master Address: {{ currentMaster }}</p>
                     <p class="text-sm-center">Credit Plan----Credit: {{ creditPlan.credit }} Recovery Rate: {{ creditPlan.recoveryRate }}</p>
-                    <p class="text-md-center">Description: 1 VTHO = Energy/1e+18; Energy = gas * gasPrice; gasPrice = bgp + bgp * gpc /255  (about 1.7e+15）; bgp = 1e+15, gpc = 180</p>
+                    <p class="text-md-center">Description: 1 VTHO = Energy/1e+18; Energy = gas * gasPrice; gasPrice = bgp + bgp * gpc /255 (about 1.7e+15）; bgp = 1e+15, gpc = 180</p>
                     <v-container grid-list-md text-xs-center>
                         <v-layout column>
                             <v-layout row>
@@ -48,7 +48,7 @@
                                     <v-text-field v-model="addSponsorAdd" label="Sponsor Address" type="text"></v-text-field>
                                 </v-flex>
                                 <v-flex xs3>
-                                    <v-btn block color="primary" dark @click="snackbar = true" v-on:click="isSponsor(addSponsorAdd)">
+                                    <v-btn block color="primary" dark @click="snackbar = true" v-on:click="Sponsor(addSponsorAdd)">
                                         Sponsor
                                     </v-btn>
                                 </v-flex>
@@ -97,11 +97,26 @@
                 </v-card>
             </section>
             <section>
+                <v-data-table :headers="nonuser_headers" :items="nonusers" hide-actions class="elevation-1">
+                    <template slot="items" slot-scope="props">
+                        <!-- Note that the reason to use <template> here is because we want to have the full size table. -->
+                        <td class="text-xs-center">{{ props.item.address }}</td>
+                        <td class="text-xs-center">{{ props.item.bal }}</td>
+                        <div class="text-xs-center">
+                            <v-btn color="grey" primary v-on:click="Shopping(props.item.address)">
+                                Send A Transaction
+                            </v-btn>
+                        </div>
+                    </template>
+                </v-data-table>
+            </section>
+            <section>
                 <v-data-table :headers="user_headers" :items="users" hide-actions class="elevation-1">
                     <template slot="items" slot-scope="props">
                         <!-- Note that the reason to use <template> here is because we want to have the full size table. -->
                         <td class="text-xs-center">{{ props.item.address }}</td>
                         <td class="text-xs-center">{{ props.item.remainingCredit }}</td>
+                        <td class="text-xs-center">{{ props.item.bal }}</td>
                         <div class="text-xs-center">
                             <v-btn color="grey" primary v-on:click="Shopping(props.item.address)">
                                 Send A Transaction
@@ -147,12 +162,27 @@ export default {
           value: "Balance"
         },
         {
-          text: "Credit Plan",
+          text: "Select Sponsor",
           align: "center",
-          value: "credits"
+          sortable: false,
+          value: "button"
+        }
+      ],
+      nonuser_headers: [
+        {
+          text: "NonUser-Address",
+          align: "center",
+          sortable: false,
+          value: "address"
         },
         {
-          text: "Select Sponsor",
+          text: "VTHO Left",
+          align: "center",
+          sortable: false,
+          value: "text"
+        },
+        {
+          text: "Shopping",
           align: "center",
           sortable: false,
           value: "button"
@@ -172,6 +202,12 @@ export default {
           value: "text"
         },
         {
+          text: "VTHO Left",
+          align: "center",
+          sortable: false,
+          value: "text"
+        },
+        {
           text: "Shopping",
           align: "center",
           sortable: false,
@@ -180,6 +216,7 @@ export default {
       ],
       sponsors: [],
       users: [],
+      nonusers: [],
       currentSponsor: "",
       currentMaster: "",
       addSponsorAdd: "",
@@ -196,7 +233,8 @@ export default {
     this.loadContract(); // Going to display the contract address into the UI.
     this.loadCurrentMaster();
     this.loadCurrentSponsor(); // Going to display the current sponsor into the UI.
-    this.addInitialUsers();
+    // this.addInitialUsers();
+    this.loadRandomAccount();
   },
   methods: {
     MainPage() {
@@ -207,7 +245,7 @@ export default {
 
     async loadCurrentSponsor() {
       let currentSponsor = await apiUti.currentSponsor(contractAdd);
-      this.isSponsor(currentSponsor);
+      if (currentSponsor) this.isSponsor(currentSponsor);
     },
 
     async loadCurrentMaster() {
@@ -226,30 +264,58 @@ export default {
       this.currentSponsor = currentSponsor;
     },
 
+    async loadRandomAccount() {
+      const randomAdd = "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf";
+      // const randomPrk =
+      //   "74266bdf3ffe2efad1efab3c83f92d9cb0baa2c2ad1d7ad46f5e3ef18878b835";
+      let energy = await apiUti.getEnergy(randomAdd);
+      let vtho = energy / Math.pow(10, 18);
+      let randomAcc = {
+        address: randomAdd,
+        bal: vtho
+      };
+      this.nonusers.push(randomAcc);
+    },
+
     async loadContract() {
       let energy = await apiUti.getEnergy(contractAdd);
       let vtho = energy / Math.pow(10, 18);
       let creditPlan = await apiUti.creditPlan(contractAdd);
-      this.creditPlan.credit = parseInt(creditPlan.credit, 16) / Math.pow(10, 18);
+      this.creditPlan.credit =
+        parseInt(creditPlan.credit, 16) / Math.pow(10, 18);
       this.creditPlan.recoveryRate = parseInt(creditPlan.recoveryRate, 16);
       var newSponsor = {
         address: contractAdd + " (Contract Itself)",
         bal: vtho,
         creditPlan:
-          "Credit: " + this.creditPlan.credit + " Recovery Rate: " + this.creditPlan.recoveryRate
+          "Credit: " +
+          this.creditPlan.credit +
+          " Recovery Rate: " +
+          this.creditPlan.recoveryRate
       };
       this.sponsors.push(newSponsor);
       // db.sponsorsInsert(contractAdd);
     },
     async unSponsor() {},
 
-    async Sponsor() {},
+    async Sponsor(sponsorAdd) {
+      let sponsorPrivateKey;
+      if (sponsorAdd == "0x7797728c180152c98787351a531526a508fe814c") {
+        sponsorPrivateKey =
+          "0x853fb586200ee2e0d620ac6ad89e8546494c1104ae4b2539777b35a29a552f94";
+      }
+      console.log("new sponsor privatekey: ", sponsorPrivateKey);
+      let result = await apiUti.Sponsor(contractAdd, sponsorPrivateKey);
+      if (result) {
+        this.isSponsor(sponsorAdd);
+      }
+    },
 
     async isSponsor(sponsorAdd) {
       // var sponsorAdd = '0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d'
       let isSpon = await apiUti.isSponsor(contractAdd, sponsorAdd);
       console.log(isSpon);
-      if (isSpon == 1) {
+      if (isSpon) {
         let energy = await apiUti.getEnergy(sponsorAdd);
         console.log("energy sponsor : ", energy);
         energy = parseInt(energy, 16);
@@ -303,9 +369,12 @@ export default {
         let userCredit = await apiUti.userCredit(contractAdd, userAdd);
         userCredit = userCredit / Math.pow(10, 18);
         console.log("user credit: ", userCredit);
+        let energy = await apiUti.getEnergy(userAdd);
+        let vtho = energy / Math.pow(10, 18);
         let user = {
           address: userAdd,
-          remainingCredit: userCredit
+          remainingCredit: userCredit,
+          bal: vtho
         };
         this.users.push(user);
         console.log(this.users);
@@ -321,9 +390,12 @@ export default {
           let userCredit = await apiUti.userCredit(contractAdd, userAdd);
           userCredit = userCredit / Math.pow(10, 18);
           console.log("user credit 2: ", userCredit);
+          let energy = await apiUti.getEnergy(userAdd);
+          let vtho = energy / Math.pow(10, 18);
           let user = {
             address: userAdd,
-            remainingCredit: userCredit
+            remainingCredit: userCredit,
+            bal: vtho
           };
           this.users.push(user);
           console.log(this.users);
@@ -371,6 +443,8 @@ export default {
         "0xbf02c1c966963e635676d831600baa8ff8d3843a0624f1a59e5bc3b9624a1ec5";
       const user3PrivateKey =
         "0x989f429a16161a078b65f507b36c5286272735018db939e073620f9ee465606c";
+      const randomAccPriKey =
+        "0x74266bdf3ffe2efad1efab3c83f92d9cb0baa2c2ad1d7ad46f5e3ef18878b835";
       let userPrikey;
       if (userAdd == "0x6a480c078bfa88ac6a4d323e7d9b00c94cb9ec22") {
         userPrikey = user1PrivateKey;
@@ -378,18 +452,42 @@ export default {
         userPrikey = user2PrivateKey;
       } else if (userAdd == "0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d") {
         userPrikey = user3PrivateKey;
+      } else if (userAdd == "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf") {
+        console.log("random account");
+        userPrikey = randomAccPriKey;
       }
       // Simply sending a transaction to the contract, to see who is going to pay the gas.
+      console.log("prikey: ", userPrikey);
       let result = await apiUti.Shopping(contractAdd, userPrikey);
       console.log("shopping result: ", result);
-      if (result) {
-        console.log("load current sponsor");
-        this.loadCurrentSponsor();
+      let status = result[0];
+      console.log("status: ", status);
+      let gasPayer = result[1];
+      console.log("gas payer: ", gasPayer);
+      if (status) {
+        if (gasPayer == "0x102289403ab6120b33af459a9ac2e7f58458f2c6") {
+          console.log("gasPayer Check: ", gasPayer);
+          this.loadContract();
+          this.addUser(userAdd); // this referesh the user info
+        } else if (
+          gasPayer == userAdd &&
+          gasPayer != "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf"
+        ) {
+          console.log("gasPayer Check", gasPayer);
+          this.addUser(userAdd); // this referesh the user info
+        } else if (gasPayer == "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf") {
+          console.log("gasPayer Check", gasPayer);
+          this.loadRandomAccount();
+        } else if (gasPayer == "0x7797728c180152c98787351a531526a508fe814c") {
+          console.log("gasPayer Check", gasPayer);
+          this.loadCurrentSponsor();
+          this.addUser(userAdd); // this referesh the user info
+        }
       }
     },
 
     async setCreditPlan(credit, recoveryRate) {
-      console.log('credit: ', credit)
+      console.log("credit: ", credit);
       let result = await apiUti.setCreditPlan(
         contractAdd,
         credit,

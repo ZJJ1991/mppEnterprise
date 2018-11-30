@@ -1,6 +1,8 @@
 import { cry, abi, RLP, Transaction } from "thor-devkit";
 import { resolve } from "url";
 import { prototype } from "form-data";
+import { AnyTxtRecord } from "dns";
+import { ENFILE } from "constants";
 // const thor_dev = require('thor-devkit')
 const api = "http://localhost:8669";
 const Web3 = require("web3");
@@ -43,7 +45,7 @@ export default class API {
     });
   }
 
-  async getTransactionReceipt(txid: string) {
+  async getTransactionReceipt(txid: string): Promise<any> {
     let url = api + "/transactions/" + txid + "/receipt";
     var options = {
       method: "GET",
@@ -57,11 +59,12 @@ export default class API {
           body = JSON.parse(JSON.stringify(body));
           console.log("tx receipt: ", body);
           let reverted = body.reverted;
-          if (!reverted) resolve(true);
-          else resolve(false);
+          let gasPayer = body.gasPayer;
+          if (!reverted) resolve([true, gasPayer]);
+          else resolve([false, gasPayer]);
         } else {
           console.log("err: " + error);
-          reject(false);
+          reject([false, undefined]);
         }
       });
     });
@@ -92,35 +95,25 @@ export default class API {
   }
 
   async currentSponsor(contractAddress: string) {
-    return new Promise(function(resolve, reject) {
-      let url = api + "/accounts/" + prototypeAddress;
-      var methodId = web3.eth.abi.encodeFunctionSignature(
-        "currentSponsor(address)"
-      );
-      var parameter = web3.eth.abi.encodeParameter("address", contractAddress);
-      var code = methodId + parameter.substr(2);
-      var options = {
-        method: "POST",
-        json: true,
-        headers: [],
-        body: {
-          data: code
-        }
-      };
-
-      request(url, options, function(error: any, response: any, body: any) {
-        if (!error && response.statusCode == 200) {
-          body = JSON.parse(JSON.stringify(body));
-          console.log("body: ", body);
-          let currentSponsor = body.data;
-          currentSponsor = "0x" + currentSponsor.substr(26); // Note that the returned data here is always 32 bytes long, which should be converted into correct data format accordingly.
-          resolve(currentSponsor);
-        } else {
-          console.log("err: " + error);
-          reject(false);
-        }
+    var methodId = web3.eth.abi.encodeFunctionSignature(
+      "currentSponsor(address)"
+    );
+    var parameter = web3.eth.abi.encodeParameter("address", contractAddress);
+    var code = methodId + parameter.substr(2);
+    let currentSponsor = await this.executeAccountCode(prototypeAddress, code);
+    if (currentSponsor == false) {
+      return false;
+    }
+    let isSponsor = await this.isSponsor(contractAddress, "0x" + currentSponsor.substr(26));
+    console.log("isSponsor result: ", isSponsor)
+    if (isSponsor) {
+      return new Promise(function(resolve, reject) {
+        currentSponsor = "0x" + currentSponsor.substr(26); // Note that the returned data here is always 32 bytes long, which should be converted into correct data format accordingly.
+        console.log("current sponsor: ", currentSponsor);
+        resolve(currentSponsor);
       });
-    });
+    }
+    return false;
   }
 
   async getMaster(contractAddress: any) {
@@ -154,38 +147,23 @@ export default class API {
 
   // The api this function calls does not interfere with any transaction.
   async isSponsor(contractAdd: any, sponsorAdd: any) {
+    var methodId = web3.eth.abi.encodeFunctionSignature(
+      "isSponsor(address,address)"
+    );
+    var parameter = web3.eth.abi.encodeParameters(
+      ["address", "address"],
+      [contractAdd, sponsorAdd]
+    );
+    var code = methodId + parameter.substr(2);
+    let isSponsor = await this.executeAccountCode(prototypeAddress, code);
+    console.log("isSponsor: ", isSponsor);
+    if (isSponsor == false || isSponsor == "0x0000000000000000000000000000000000000000000000000000000000000000") {
+      return false;
+    }
     return new Promise(function(resolve, reject) {
-      let url = api + "/accounts/" + prototypeAddress;
-      var methodId = web3.eth.abi.encodeFunctionSignature(
-        "isSponsor(address,address)"
-      );
-      var parameter = web3.eth.abi.encodeParameters(
-        ["address", "address"],
-        [contractAdd, sponsorAdd]
-      );
-      var code = methodId + parameter.substr(2);
-      console.log("code: ", code);
-
-      var options = {
-        method: "POST",
-        json: true,
-        headers: [],
-        body: {
-          data: code
-        }
-      };
-
-      request(url, options, function(error: any, response: any, body: any) {
-        if (!error && response.statusCode == 200) {
-          body = JSON.parse(JSON.stringify(body));
-          let data = body.data;
-          let status = data.substr(65);
-          resolve(status);
-        } else {
-          console.log("err: " + error);
-          reject(false);
-        }
-      });
+      // let status = isSponsor.substr(65);
+      // console.log("status: ", status);
+      resolve(true);
     });
   }
 
@@ -235,9 +213,16 @@ export default class API {
       [contractAddress]
     );
     var code: string = methodId + parameter.substr(2);
-    var number = 0 * Math.pow(10, 18);
 
-    this.sendTx(code, prototypeAddress, sponsorPrivateKey);
+    let txid = await this.sendTx(code, prototypeAddress, sponsorPrivateKey);
+    await delay(13000);
+    let receiptResult = await this.getTransactionReceipt(txid.toString());
+    let status = receiptResult[0];
+    console.log("status, ", status);
+    return new Promise(function(resolve, reject) {
+      console.log("sponsor the contract result: ", status);
+      resolve(status);
+    });
   }
 
   async addUser(
@@ -256,7 +241,8 @@ export default class API {
     console.log("add user code: ", code);
     let txid = await this.sendTx(code, prototypeAddress, masterPrivateKey);
     await delay(13000);
-    let status = await this.getTransactionReceipt(txid.toString());
+    let transactionResult = await this.getTransactionReceipt(txid.toString());
+    let status = transactionResult[0];
     console.log("status, ", status);
     return new Promise(function(resolve, reject) {
       console.log("add user result 2: ", status);
@@ -280,7 +266,8 @@ export default class API {
     console.log("remove user code: ", code);
     let txid = await this.sendTx(code, prototypeAddress, masterPrivateKey);
     await delay(13000);
-    let status = await this.getTransactionReceipt(txid.toString());
+    let transactionResult = await this.getTransactionReceipt(txid.toString());
+    let status = transactionResult[0];
     console.log("status, ", status);
     return new Promise(function(resolve, reject) {
       console.log("remove user result 2: ", status);
@@ -288,43 +275,27 @@ export default class API {
     });
   }
   async creditPlan(contractAddress: string) {
+    var methodId = web3.eth.abi.encodeFunctionSignature("creditPlan(address)");
+    var parameter = web3.eth.abi.encodeParameters(
+      ["address"],
+      [contractAddress]
+    );
+    var code = methodId + parameter.substr(2);
+    let rawCreditPlan = await this.executeAccountCode(prototypeAddress, code);
+    if (rawCreditPlan == false) {
+      return false;
+    }
     return new Promise(function(resolve, reject) {
-      let url = api + "/accounts/" + prototypeAddress;
-      var methodId = web3.eth.abi.encodeFunctionSignature(
-        "creditPlan(address)"
-      );
-      var parameter = web3.eth.abi.encodeParameters(
-        ["address"],
-        [contractAddress]
-      );
-      var code = methodId + parameter.substr(2);
-      console.log("code: ", code);
-      var options = {
-        method: "POST",
-        json: true,
-        headers: [],
-        body: {
-          data: code
-        }
+      let recoveryRate = rawCreditPlan.substr(66);
+      let credit = "";
+      for (var i = 0; i < 66; i++) {
+        credit = credit + rawCreditPlan[i];
+      }
+      let creditPlan = {
+        credit: credit,
+        recoveryRate: recoveryRate
       };
-      request(url, options, function(error: any, response: any, body: any) {
-        if (!error && response.statusCode == 200) {
-          body = JSON.parse(JSON.stringify(body));
-          let rawCreditPlan = body.data;
-          let recoveryRate = rawCreditPlan.substr(66);
-          let credit = "";
-          for (var i = 0; i < 66; i++) {
-            credit = credit + rawCreditPlan[i];
-          }
-          let creditPlan = {
-            credit: credit,
-            recoveryRate: recoveryRate
-          };
-          resolve(creditPlan);
-        } else {
-          reject(error);
-        }
-      });
+      resolve(creditPlan);
     });
   }
   // 0x0000000000000000000000000000000000000025dd85d670d35ec9bec00000000000000000000000000000000000000000000000000000000000000000000000
@@ -332,7 +303,6 @@ export default class API {
   // 0x0000000000000000000000000000000000000025DD85D670D35EC9BEC0000000
   // 0000000000000000000000000000000000000000000000000000000000000000
   async userCredit(contractAddress: string, userAddress: string) {
-    let url = api + "/accounts/" + prototypeAddress;
     var methodId = web3.eth.abi.encodeFunctionSignature(
       "userCredit(address,address)"
     );
@@ -350,20 +320,15 @@ export default class API {
         data: code
       }
     };
+    let credit = await this.executeAccountCode(prototypeAddress, code);
+    if (credit == false) {
+      return false;
+    }
     return new Promise(function(resolve, reject) {
-      request(url, options, function(error: any, response: any, body: any) {
-        if (!error && response.statusCode == 200) {
-          body = JSON.parse(JSON.stringify(body));
-          console.log("user credit: ", body);
-          let credit = body.data;
-          console.log("credit is: ", credit);
-          credit = parseInt(credit, 16);
-          console.log("credit is: ", credit);
-          resolve(credit);
-        } else {
-          reject(false);
-        }
-      });
+      console.log("credit is: ", credit);
+      credit = parseInt(credit, 16);
+      console.log("credit is: ", credit);
+      resolve(credit);
     });
   }
 
@@ -377,31 +342,19 @@ export default class API {
       [contractAddress, userAddress]
     );
     var code = methodId + parameter.substr(2);
-    console.log("code: ", code);
-    var options = {
-      method: "POST",
-      json: true,
-      headers: [],
-      body: {
-        data: code
-      }
-    };
+    let isUser = await this.executeAccountCode(prototypeAddress, code);
+    if (isUser == false) {
+      return false;
+    }
+    console.log("is user result lllll: ", isUser);
     return new Promise(function(resolve, reject) {
-      request(url, options, function(error: any, response: any, body: any) {
-        if (!error && response.statusCode == 200) {
-          body = JSON.parse(JSON.stringify(body));
-          console.log("is user body: ", body);
-          let isUser = body.data;
-          if (
-            isUser ==
-            "0x0000000000000000000000000000000000000000000000000000000000000001"
-          )
-            resolve(true);
-          else resolve(false);
-        } else {
-          reject(false);
-        }
-      });
+      console.log("is user data: ", isUser);
+      if (
+        isUser ==
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
+      )
+        resolve(true);
+      else resolve(false);
     });
   }
 
@@ -411,19 +364,20 @@ export default class API {
     recoveryRate: string,
     masterPrivateKey: string
   ) {
-    let energy = credit + '000000000000000000'
+    let energy = credit + "000000000000000000";
     var methodId = web3.eth.abi.encodeFunctionSignature(
       "setCreditPlan(address,uint256,uint256)"
     );
     var parameter = web3.eth.abi.encodeParameters(
       ["address", "uint256", "uint256"],
-      [contractAddress, energy, recoveryRate]
+      [contractAddress, energy, recoveryRate] // contractAddress is the enterprise contract address
     );
     var code: string = methodId + parameter.substr(2);
-    console.log("remove user code: ", code);
+    console.log("set credit plan code: ", code);
     let txid = await this.sendTx(code, prototypeAddress, masterPrivateKey);
     await delay(13000);
-    let status = await this.getTransactionReceipt(txid.toString());
+    let transactionResult = await this.getTransactionReceipt(txid.toString());
+    let status = transactionResult[0];
     console.log("status, ", status);
     return new Promise(function(resolve, reject) {
       console.log("set credit plan result: ", status);
@@ -446,7 +400,8 @@ export default class API {
     var code: string = methodId + parameter.substr(2);
     let txid = await this.sendTx(code, prototypeAddress, masterPrivateKey);
     await delay(13000);
-    let status = await this.getTransactionReceipt(txid.toString());
+    let transactionResult = await this.getTransactionReceipt(txid.toString());
+    let status = transactionResult[0];
     console.log("status, ", status);
     return new Promise(function(resolve, reject) {
       console.log("select sponsor result 2: ", status);
@@ -459,9 +414,9 @@ export default class API {
 
     let txid = await this.sendTx(methodId, contractAddress, privateKey);
     await delay(13000);
-    let status = await this.getTransactionReceipt(txid.toString());
+    let transactionResult = await this.getTransactionReceipt(txid.toString());
     return new Promise(function(resolve, reject) {
-      resolve(status);
+      resolve(transactionResult);
     });
   }
 
@@ -474,8 +429,7 @@ export default class API {
         data: code
       }
     ];
-    var bestRef = await this.bestBlockRef();
-
+    var bestRef = await this.bestBlockRef(); // this is the latest block reference
     // Get the latest block height, which will be referenced to later on
     bestRef = "0x" + bestRef; // blockRef is the first 8 bytes of a specified block id;however if the block is a future block, the blockRef is the 4 bytes block height plus the 4 bytes 0.
     console.log("bestblockref:", bestRef);
@@ -487,7 +441,7 @@ export default class API {
       expiration: 100, // This specifies the transaction expires in 100 blocks.
       clauses: clauses,
       gasPriceCoef: 180,
-      gas: 900000, // Note that the gas here refers to the gas limit.
+      gas: 100000, // Note that the gas here refers to the gas limit.
       dependsOn: null,
       nonce: "0x29c257e36ea6e72a"
     };
@@ -500,7 +454,6 @@ export default class API {
     );
 
     let raw = tx.encode(); // Note that the raw transaction does not contain '0x' profit yet. When actually sending a transaction, '0x' prefix is needed.
-    console.log("raw tx: ", "0x" + raw.toString("hex"));
     let decoded = Transaction.decode(raw);
     var options = {
       method: "POST",
@@ -523,7 +476,29 @@ export default class API {
     });
   }
 
-  getFullNum(num:any) {
+  async executeAccountCode(accountAddress: string, code: string): Promise<any> {
+    let url = api + "/accounts/" + accountAddress;
+    var options = {
+      method: "POST",
+      json: true,
+      headers: [],
+      body: {
+        data: code
+      }
+    };
+    return new Promise(function(resolve, reject) {
+      request(url, options, function(error: any, response: any, body: any) {
+        if (!error && response.statusCode == 200) {
+          body = JSON.parse(JSON.stringify(body));
+          resolve(body.data);
+        } else {
+          reject(false);
+        }
+      });
+    });
+  }
+
+  getFullNum(num: any) {
     //处理非数字
     if (isNaN(num)) {
       return num;
@@ -546,19 +521,25 @@ var aapi = new API();
 //   contractAdd,
 //   "0x989f429a16161a078b65f507b36c5286272735018db939e073620f9ee465606c"
 // );
-
+// aapi.unSponsor(
+//   contractAdd,
+//   "0x853fb586200ee2e0d620ac6ad89e8546494c1104ae4b2539777b35a29a552f94"
+// );
 // aapi.currentSponsor(contractAdd);
 
 // aapi.Sponsor(
 //   contractAdd,
 //   "0x989f429a16161a078b65f507b36c5286272735018db939e073620f9ee465606c"
 // );
-
+// aapi.Sponsor(
+//   contractAdd,
+//   "0x853fb586200ee2e0d620ac6ad89e8546494c1104ae4b2539777b35a29a552f94"
+// );
 // aapi.addUser(contractAdd, "0x05fBE2524837B5768fbc2c6A4a6741a6Ae78546d", "0x5cedad2e53f4ffd46e0ca9f9e7a98b0ea47ce4606bf447320a35a7a2726266eb")
 
 // aapi.removeUser(contractAdd, "0x05fBE2524837B5768fbc2c6A4a6741a6Ae78546d", "0x5cedad2e53f4ffd46e0ca9f9e7a98b0ea47ce4606bf447320a35a7a2726266eb")
 
-aapi.setCreditPlan(contractAdd, "300000", "0", "0x5cedad2e53f4ffd46e0ca9f9e7a98b0ea47ce4606bf447320a35a7a2726266eb")
+// aapi.setCreditPlan(contractAdd, "300000", "0", "0x5cedad2e53f4ffd46e0ca9f9e7a98b0ea47ce4606bf447320a35a7a2726266eb")
 
 // aapi.selectSponsor(
 //   contractAdd,
@@ -571,7 +552,7 @@ aapi.setCreditPlan(contractAdd, "300000", "0", "0x5cedad2e53f4ffd46e0ca9f9e7a98b
 // aapi.userCredit(contractAdd, "0x6a480c078bfa88ac6a4d323e7d9b00c94cb9ec22")
 // aapi.userCredit(contractAdd, "0x6cd336cd6766fc8370821166325fb9e8e4a986b6")
 
-// aapi.isUser(contractAdd, "0x6a480c078bfa88ac6a4d323e7d9b00c94cb9ec22")
+// aapi.isUser(contractAdd, "0x6a480c078bfa88ac6a4d323e7d9b00c94cb9ec22");
 
 // aapi.Shopping(
 //   contractAdd,
@@ -584,3 +565,4 @@ aapi.setCreditPlan(contractAdd, "300000", "0", "0x5cedad2e53f4ffd46e0ca9f9e7a98b
 // aapi.getTransaction(
 //   "0xdaca627dff4cdba13a81c81da4ebfb8610ae559b7683cef3ecf6de814fb8ace2"
 // );
+// aapi.getEnergy("0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d")
