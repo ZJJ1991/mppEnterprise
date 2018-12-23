@@ -1,6 +1,5 @@
 import { cry, abi, RLP, Transaction } from "thor-devkit";
 import { resolve } from "url";
-import { prototype } from "form-data";
 import { AnyTxtRecord } from "dns";
 import { ENFILE } from "constants";
 // const thor_dev = require('thor-devkit')
@@ -82,7 +81,7 @@ export default class API {
         if (!error && response.statusCode == 200) {
           console.log("raw body: ", body);
           body = JSON.parse(JSON.stringify(body));
-          console.log("tx receipt: ", body);
+          console.log("tx result: ", body);
           let reverted = body.reverted;
           if (!reverted) resolve(true);
           else resolve(false);
@@ -203,7 +202,13 @@ export default class API {
     );
     var code: string = methodId + parameter.substr(2);
     var number = 0 * Math.pow(10, 18);
-    this.sendTx(code, prototypeAddress, sponsorPrivateKey);
+    let txid = await this.sendTx(code, prototypeAddress, sponsorPrivateKey);
+    await delay(13000);
+    let receiptResult = await this.getTransactionReceipt(txid.toString());
+    let status = receiptResult[0];
+    return new Promise(function(resolve, reject) {
+      resolve(status);
+    });
   }
 
   async Sponsor(contractAddress: string, sponsorPrivateKey: string) {
@@ -218,9 +223,7 @@ export default class API {
     await delay(13000);
     let receiptResult = await this.getTransactionReceipt(txid.toString());
     let status = receiptResult[0];
-    console.log("status, ", status);
     return new Promise(function(resolve, reject) {
-      console.log("sponsor the contract result: ", status);
       resolve(status);
     });
   }
@@ -243,9 +246,7 @@ export default class API {
     await delay(13000);
     let transactionResult = await this.getTransactionReceipt(txid.toString());
     let status = transactionResult[0];
-    console.log("status, ", status);
     return new Promise(function(resolve, reject) {
-      console.log("add user result 2: ", status);
       resolve(status);
     });
   }
@@ -376,6 +377,7 @@ export default class API {
     console.log("set credit plan code: ", code);
     let txid = await this.sendTx(code, prototypeAddress, masterPrivateKey);
     await delay(13000);
+    
     let transactionResult = await this.getTransactionReceipt(txid.toString());
     let status = transactionResult[0];
     console.log("status, ", status);

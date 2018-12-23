@@ -15,7 +15,7 @@
             <img src="~assets/logo.png" alt="Vuetify.js" height="200">
             <br/><br/>
             <h1 class="white--text mb-2 display-1 text-xs-center">Multi Party Payment Demo</h1>
-            <div class="subheading mb-3 text-xs-center">Powered by VeChain Foundation</div>
+            <div class="subheading mb-3 text-xs-center">Powered by An Active VeChain Community Developer</div>
             <v-btn
               class="blue lighten-2 mt-5"
               dark
@@ -116,7 +116,7 @@
             <v-flex xs12 sm4>
               <v-card class="elevation-0 transparent">
                 <v-card-title primary-title class="layout justify-center">
-                  <div class="headline">Company info</div>
+                  <div class="headline">Company Info</div>
                 </v-card-title>
                 <v-card-text>
                   VeChain is a public blockchain platform that focuses on supply chain management and smart contracts. It is commonly listed as VET on crypto-trading platforms.
@@ -128,10 +128,10 @@
             <v-flex xs12 sm4 offset-sm1>
               <v-card class="elevation-0 transparent">
                 <v-card-title primary-title class="layout justify-center">
-                  <div class="headline">Contact us</div>
+                  <div class="headline">Contact the company</div>
                 </v-card-title>
                 <v-card-text>
-                  Contact us if you have encountered any technical issues.
+                  When I have encountered any technical issues, I always contact the company through the following information.
                 </v-card-text>
                 <v-list class="transparent">
                   <v-list-tile>

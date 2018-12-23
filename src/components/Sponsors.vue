@@ -16,11 +16,11 @@
                         <img src="~assets/logo.png" alt="Vuetify.js" height="200">
                         <br/><br/>
                         <h1 class="white--text mb-2 display-1 text-xs-center">{{ title }}</h1>
-                        <div class="subheading mb-3 text-xs-center">Powered by VeChain Foundation</div>
+                        <div class="subheading mb-3 text-xs-center">Powered by An active VeChain Community Developer</div>
                     </v-layout>
                 </v-parallax>
             </section>
-            <section>
+            <section class="mx-5 mt-3">
                 <v-data-table :headers="sponsor_headers" :items="sponsors" hide-actions class="elevation-1">
                     <template slot="items" slot-scope="props">
                         <!-- Note that the reason to use <template> here is because we want to have the full size table. -->
@@ -35,12 +35,13 @@
                     </template>
                 </v-data-table>
             </section>
-            <section>
-                <v-card class="text-xs-center">
+            <section class="mx-5 mt-3">
+                <v-card class="text-xs-center" title="Basic Info">
                     <p class="text-md-center">Current Sponsor Address: {{ currentSponsor }}</p>
                     <p class="text-md-center">Current Master Address: {{ currentMaster }}</p>
-                    <p class="text-sm-center">Credit Plan----Credit: {{ creditPlan.credit }} Recovery Rate: {{ creditPlan.recoveryRate }}</p>
-                    <p class="text-md-center">Description: 1 VTHO = Energy/1e+18; Energy = gas * gasPrice; gasPrice = bgp + bgp * gpc /255 (about 1.7e+15）; bgp = 1e+15, gpc = 180</p>
+                    <p class="text-md-center">Credit Plan----Credit: {{ creditPlan.credit }} Recovery Rate: {{ creditPlan.recoveryRate }}</p>
+                    <p class="text-md-center">Some testing data going be to be used: user:0x6cd336cd6766fc8370821166325fb9e8e4a986b6, sponsor:0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d</p>
+                    <!-- <p class="text-md-center">Description: 1 VTHO = Energy/1e+18; Energy = gas * gasPrice; gasPrice = bgp + bgp * gpc /255 (about 1.7e+15）; bgp = 1e+15, gpc = 180</p> -->
                     <v-container grid-list-md text-xs-center>
                         <v-layout column>
                             <v-layout row>
@@ -53,11 +54,11 @@
                                     </v-btn>
                                 </v-flex>
                                 <v-flex xs12>
-                                    <v-text-field v-model="checkInAdd" label="Valid Sponsor Address Not Included In This System Yet" type="text"></v-text-field>
+                                    <v-text-field v-model="unsponsorAdd" label="The address that is going to be removed from the sponsor list." type="text"></v-text-field>
                                 </v-flex>
                                 <v-flex xs3>
-                                    <v-btn block color="primary" dark @click="snackbar = true" v-on:click="isSponsor(checkInAdd)">
-                                        Check In
+                                    <v-btn block color="primary" dark @click="snackbar = true" v-on:click="unSponsor(unsponsorAdd)">
+                                        UnSponsor
                                     </v-btn>
                                 </v-flex>
                             </v-layout>
@@ -96,7 +97,7 @@
                     </v-container>
                 </v-card>
             </section>
-            <section>
+            <section class="mx-5 mt-3">
                 <v-data-table :headers="nonuser_headers" :items="nonusers" hide-actions class="elevation-1">
                     <template slot="items" slot-scope="props">
                         <!-- Note that the reason to use <template> here is because we want to have the full size table. -->
@@ -110,7 +111,7 @@
                     </template>
                 </v-data-table>
             </section>
-            <section>
+            <section class="mx-5 mt-3 mb-3">
                 <v-data-table :headers="user_headers" :items="users" hide-actions class="elevation-1">
                     <template slot="items" slot-scope="props">
                         <!-- Note that the reason to use <template> here is because we want to have the full size table. -->
@@ -136,7 +137,7 @@
 <script>
 // import PrototypeUtility from "../lib/Prototype";
 import API from "../lib/api";
-
+import BigNumber from "bignumber.js";
 // const PrototypeUti = new PrototypeUtility();
 const apiUti = new API();
 
@@ -220,7 +221,7 @@ export default {
       currentSponsor: "",
       currentMaster: "",
       addSponsorAdd: "",
-      checkInAdd: "",
+      unsponsorAdd: "",
       addUserAdd: "",
       rmUserAdd: "",
       creditPlan: [],
@@ -250,7 +251,6 @@ export default {
 
     async loadCurrentMaster() {
       let currnetMaster = await apiUti.getMaster(contractAdd);
-      console.log("current master: ", currnetMaster);
       if (currnetMaster) {
         this.currentMaster = currnetMaster;
       } else {
@@ -260,7 +260,6 @@ export default {
 
     async CurrentSponsor() {
       let currentSponsor = await apiUti.currentSponsor(contractAdd);
-      console.log("current sponsor: ", currentSponsor);
       this.currentSponsor = currentSponsor;
     },
 
@@ -270,6 +269,7 @@ export default {
       //   "74266bdf3ffe2efad1efab3c83f92d9cb0baa2c2ad1d7ad46f5e3ef18878b835";
       let energy = await apiUti.getEnergy(randomAdd);
       let vtho = energy / Math.pow(10, 18);
+      vtho = new BigNumber(vtho).dp(3).toString(10);
       let randomAcc = {
         address: randomAdd,
         bal: vtho
@@ -280,6 +280,7 @@ export default {
     async loadContract() {
       let energy = await apiUti.getEnergy(contractAdd);
       let vtho = energy / Math.pow(10, 18);
+      vtho = new BigNumber(vtho).dp(3).toString(10);
       let creditPlan = await apiUti.creditPlan(contractAdd);
       this.creditPlan.credit =
         parseInt(creditPlan.credit, 16) / Math.pow(10, 18);
@@ -296,40 +297,46 @@ export default {
       this.sponsors.push(newSponsor);
       // db.sponsorsInsert(contractAdd);
     },
-    async unSponsor() {},
-
     async Sponsor(sponsorAdd) {
       let sponsorPrivateKey;
       if (sponsorAdd == "0x7797728c180152c98787351a531526a508fe814c") {
         sponsorPrivateKey =
           "0x853fb586200ee2e0d620ac6ad89e8546494c1104ae4b2539777b35a29a552f94";
       }
-      console.log("new sponsor privatekey: ", sponsorPrivateKey);
       let result = await apiUti.Sponsor(contractAdd, sponsorPrivateKey);
       if (result) {
         this.isSponsor(sponsorAdd);
       }
     },
-
+    async unSponsor(sponsorAdd) {
+      let sponsorPrivateKey;
+      if (sponsorAdd == "0x7797728c180152c98787351a531526a508fe814c") {
+        sponsorPrivateKey =
+          "0x853fb586200ee2e0d620ac6ad89e8546494c1104ae4b2539777b35a29a552f94";
+      }
+      let result = await apiUti.unSponsor(contractAdd, sponsorPrivateKey);
+      if (result) {
+        this.sponsors.splice(0, 1)
+      }
+    },
     async isSponsor(sponsorAdd) {
       // var sponsorAdd = '0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d'
       let isSpon = await apiUti.isSponsor(contractAdd, sponsorAdd);
-      console.log(isSpon);
       if (isSpon) {
         let energy = await apiUti.getEnergy(sponsorAdd);
-        console.log("energy sponsor : ", energy);
         energy = parseInt(energy, 16);
-        energy = energy / Math.pow(10, 18);
+        let vtho = energy / Math.pow(10, 18);
+        vtho = new BigNumber(vtho).dp(3).toString(10);
         let creditPlan = await apiUti.creditPlan(contractAdd);
-        console.log("creditplan: ", creditPlan);
         let credit = creditPlan.credit;
         credit = parseInt(credit, 16);
         credit = credit / Math.pow(10, 18);
+        credit = new BigNumber(credit).dp(3).toString(10);
         let recoveryRate = creditPlan.recoveryRate;
         recoveryRate = parseInt(recoveryRate, 16);
         var newSponsor = {
           address: sponsorAdd,
-          bal: energy,
+          bal: vtho,
           creditPlan: "Credit: " + credit + " Recovery Rate: " + recoveryRate
         };
         this.sponsors.push(newSponsor);
@@ -354,53 +361,46 @@ export default {
         masterPrivateKey
       );
       if (result) {
-        console.log("succeed to select sponsor");
         this.currentSponsor = sponsorAdd;
       }
     },
 
     async addUser(userAdd) {
-      console.log("user address to be added: ", userAdd);
       let isUser = await apiUti.isUser(contractAdd, userAdd);
-      console.log("isUser result: ", isUser);
       // The logic is that if the user intended to be added is already a user, just add it to the UI directly, otherwise, using prototype contract to add it.
       if (isUser) {
-        console.log("is already a user");
         let userCredit = await apiUti.userCredit(contractAdd, userAdd);
         userCredit = userCredit / Math.pow(10, 18);
-        console.log("user credit: ", userCredit);
+        userCredit = new BigNumber(userCredit).dp(3).toString(10);
         let energy = await apiUti.getEnergy(userAdd);
         let vtho = energy / Math.pow(10, 18);
+        vtho = new BigNumber(vtho).dp(3).toString(10);
         let user = {
           address: userAdd,
           remainingCredit: userCredit,
           bal: vtho
         };
         this.users.push(user);
-        console.log(this.users);
       } else {
         let result = await apiUti.addUser(
           contractAdd,
           userAdd,
           masterPrivateKey
         );
-        console.log("add user result", result);
         if (result) {
-          console.log("success to add");
           let userCredit = await apiUti.userCredit(contractAdd, userAdd);
           userCredit = userCredit / Math.pow(10, 18);
-          console.log("user credit 2: ", userCredit);
+          userCredit = new BigNumber(userCredit).dp(3).toString(10);
           let energy = await apiUti.getEnergy(userAdd);
           let vtho = energy / Math.pow(10, 18);
+          vtho = new BigNumber(vtho).dp(3).toString(10);
           let user = {
             address: userAdd,
             remainingCredit: userCredit,
             bal: vtho
           };
           this.users.push(user);
-          console.log(this.users);
         } else {
-          console.log("fail to add user");
         }
       }
     },
@@ -415,24 +415,20 @@ export default {
     },
 
     async removeUser(userAdd) {
-      console.log("user address to be removed: ", userAdd);
       let result = await apiUti.removeUser(
         contractAdd,
         userAdd,
         masterPrivateKey
       );
-      console.log("result: ", result);
       if (result) {
-        console.log("success to remove");
         let userCredit = await apiUti.userCredit(contractAdd, userAdd);
         let user = {
           address: userAdd,
           remainingCredit: userCredit
         };
-        console.log("user index: ", this.users.indexOf(user));
         this.users.splice(this.users.indexOf(user), 1);
       } else {
-        console.log("fail to remove");
+        alert("failt to remove the user")
       }
     },
 
@@ -453,33 +449,24 @@ export default {
       } else if (userAdd == "0x05fbe2524837b5768fbc2c6a4a6741a6ae78546d") {
         userPrikey = user3PrivateKey;
       } else if (userAdd == "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf") {
-        console.log("random account");
         userPrikey = randomAccPriKey;
       }
       // Simply sending a transaction to the contract, to see who is going to pay the gas.
-      console.log("prikey: ", userPrikey);
       let result = await apiUti.Shopping(contractAdd, userPrikey);
-      console.log("shopping result: ", result);
       let status = result[0];
-      console.log("status: ", status);
       let gasPayer = result[1];
-      console.log("gas payer: ", gasPayer);
       if (status) {
         if (gasPayer == "0x102289403ab6120b33af459a9ac2e7f58458f2c6") {
-          console.log("gasPayer Check: ", gasPayer);
           this.loadContract();
           this.addUser(userAdd); // this referesh the user info
         } else if (
           gasPayer == userAdd &&
           gasPayer != "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf"
         ) {
-          console.log("gasPayer Check", gasPayer);
           this.addUser(userAdd); // this referesh the user info
         } else if (gasPayer == "0xaffe17f8336ffb4d6ba1b152bfe2f9d1ad703cbf") {
-          console.log("gasPayer Check", gasPayer);
           this.loadRandomAccount();
         } else if (gasPayer == "0x7797728c180152c98787351a531526a508fe814c") {
-          console.log("gasPayer Check", gasPayer);
           this.loadCurrentSponsor();
           this.addUser(userAdd); // this referesh the user info
         }
@@ -487,20 +474,17 @@ export default {
     },
 
     async setCreditPlan(credit, recoveryRate) {
-      console.log("credit: ", credit);
       let result = await apiUti.setCreditPlan(
         contractAdd,
         credit,
         recoveryRate,
         masterPrivateKey
       );
-      console.log("credit plan set result: ", result);
       if (result) {
         this.creditPlan.credit = credit;
         this.creditPlan.recoveryRate = recoveryRate;
         this.credit = "";
         this.recoveryRate = "";
-        console.log("success! ", this.creditPlan.credit);
       }
     }
     // async userCredit(address) {
